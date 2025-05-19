@@ -71,7 +71,7 @@ class WorkshopBot {
             'details' => [
                 'workshop_id' => $workshopId,
                 'workshop_name' => $workshop['name'],
-                'video_id' => $videoId,
+                'rlink' => $videoId,
                 'transcript_length' => strlen($transcript)
             ]
         ];
