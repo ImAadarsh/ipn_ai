@@ -86,8 +86,8 @@ if (isset($_POST['action'])) {
             $question = $_POST['question'];
             $userId = $_SESSION['user']['id'];
 
-            // Get answer from bot
-            $answer = $bot->answerQuestion($workshopId, $question);
+            // Get answer from bot - pass userId to enable conversation history
+            $answer = $bot->answerQuestion($workshopId, $question, $userId);
 
             if (isset($answer['error'])) {
                 echo json_encode(['error' => $answer['error']]);

@@ -183,13 +183,16 @@ class VimeoService {
         // Remove WEBVTT header and any metadata
         $lines = explode("\n", $vttContent);
         $textLines = [];
-        $inText = false;
+        $currentTimestamp = '';
+        $currentText = [];
+        
+        $inCue = false;
         
         foreach ($lines as $line) {
             $line = trim($line);
             
-            // Skip empty lines and metadata
-            if (empty($line) || $line === 'WEBVTT' || strpos($line, '-->') !== false) {
+            // Skip empty lines and WEBVTT header
+            if (empty($line) || $line === 'WEBVTT') {
                 continue;
             }
             
@@ -198,10 +201,32 @@ class VimeoService {
                 continue;
             }
             
-            $textLines[] = $line;
+            // Detect timestamp lines
+            if (strpos($line, '-->') !== false) {
+                // If we have collected text from previous timestamp, add it to output
+                if (!empty($currentText)) {
+                    $textLines[] = '[' . $currentTimestamp . '] ' . implode(' ', $currentText);
+                    $currentText = [];
+                }
+                
+                // Store the new timestamp
+                $currentTimestamp = $line;
+                $inCue = true;
+                continue;
+            }
+            
+            // Collect text lines for current timestamp
+            if ($inCue && !empty($line)) {
+                $currentText[] = $line;
+            }
         }
         
-        return implode(' ', $textLines);
+        // Add the last cue if any
+        if (!empty($currentText)) {
+            $textLines[] = '[' . $currentTimestamp . '] ' . implode(' ', $currentText);
+        }
+        
+        return implode("\n", $textLines);
     }
 }
 ?> 
