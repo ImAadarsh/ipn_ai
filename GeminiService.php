@@ -445,5 +445,95 @@ If the question cannot be fully answered with the provided transcript, acknowled
         
         return null;
     }
+
+    /**
+     * Generate follow-up questions based on current conversation
+     * 
+     * @param string $currentQuestion The user's current question
+     * @param string $currentAnswer The bot's current answer
+     * @param array $conversationHistory Previous conversation (optional)
+     * @param string $workshopSummary Workshop summary (optional)
+     * @return array Array of suggested follow-up questions
+     */
+    public function generateFollowUpQuestions($currentQuestion, $currentAnswer, $conversationHistory = [], $workshopSummary = '') {
+        // Build conversation context
+        $conversationContext = '';
+        if (!empty($conversationHistory)) {
+            foreach ($conversationHistory as $exchange) {
+                $conversationContext .= "User: {$exchange['question']}\n";
+                $conversationContext .= "Assistant: {$exchange['answer']}\n\n";
+            }
+        }
+        
+        $conversationContext .= "User: {$currentQuestion}\n";
+        $conversationContext .= "Assistant: {$currentAnswer}\n";
+        
+        // Add workshop summary if available
+        $summaryContext = '';
+        if (!empty($workshopSummary)) {
+            $summaryContext = "Workshop Summary:\n{$workshopSummary}\n\n";
+        }
+        
+        $prompt = "You are an AI assistant helping users learn from educational workshop content. 
+Based on the conversation history below, generate 3-5 thoughtful follow-up questions the user might want to ask next.
+
+{$summaryContext}Recent Conversation:
+{$conversationContext}
+
+Generate follow-up questions that:
+1. Naturally extend from the current topic and the user's interests
+2. Encourage deeper understanding of the workshop content
+3. Help clarify any potential confusion points
+4. Explore practical applications of the concepts discussed
+5. Are concise, clear and specific (not general or vague)
+
+Return ONLY a JSON array of strings, with each string being a follow-up question.
+Example format: [\"How can I apply this concept in my classroom?\", \"What tools would you recommend for this approach?\"]
+No explanation or other text - only the JSON array.";
+
+        $data = [
+            'contents' => [
+                [
+                    'parts' => [
+                        [
+                            'text' => $prompt
+                        ]
+                    ]
+                ]
+            ],
+            'generationConfig' => [
+                'temperature' => 0.7,
+                'maxOutputTokens' => 800,
+                'topK' => 40,
+                'topP' => 0.95
+            ]
+        ];
+
+        $response = $this->makeGeminiRequest('generateContent', $data);
+        
+        if (isset($response['candidates'][0]['content']['parts'][0]['text'])) {
+            $jsonText = $response['candidates'][0]['content']['parts'][0]['text'];
+            
+            // Extract JSON from the response if needed
+            if (preg_match('/```json(.*?)```/s', $jsonText, $matches)) {
+                $jsonText = $matches[1];
+            }
+            
+            // Clean the text and decode the JSON
+            $jsonText = trim($jsonText);
+            $questions = json_decode($jsonText, true);
+            
+            if (json_last_error() === JSON_ERROR_NONE && is_array($questions)) {
+                return $questions;
+            }
+        }
+        
+        // Fallback with default questions if generation fails
+        return [
+            "Can you explain more about this topic?",
+            "How can I apply this knowledge in practice?",
+            "What resources would you recommend to learn more?"
+        ];
+    }
 }
 ?> 

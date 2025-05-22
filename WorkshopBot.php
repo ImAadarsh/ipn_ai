@@ -147,9 +147,9 @@ class WorkshopBot {
             $chunks = $this->splitIntoChunks($transcript, 500);
             
             foreach ($chunks as $index => $chunk) {
-                // Generate embedding for the chunk
-                $embedding = $this->geminiService->generateEmbedding($chunk);
-                if ($embedding) {
+            // Generate embedding for the chunk
+            $embedding = $this->geminiService->generateEmbedding($chunk);
+            if ($embedding) {
                     // Store chunk and embedding with standard priority (2)
                     $this->storeChunk($workshopId, $chunk, json_encode($embedding), 2);
                 }
@@ -319,6 +319,15 @@ class WorkshopBot {
             $conversationHistory = $this->getConversationHistory($workshopId, $userId);
         }
 
+        // Extract workshop summary if available
+        $workshopSummary = '';
+        foreach ($relevantChunks as $chunk) {
+            if (strpos($chunk, '[WORKSHOP_SUMMARY]') === 0) {
+                $workshopSummary = str_replace('[WORKSHOP_SUMMARY]', '', $chunk);
+                break;
+            }
+        }
+
         // Construct prompt with conversation history
         $prompt = $this->constructPrompt($workshop, $relevantChunks, $question, $conversationHistory);
         if (empty($prompt)) {
@@ -338,12 +347,16 @@ class WorkshopBot {
             $this->storeConversation($workshopId, $userId, $question, $response);
         }
 
+        // Generate follow-up questions
+        $followUpQuestions = $this->geminiService->generateFollowUpQuestions($question, $response, $conversationHistory, $workshopSummary);
+
         return [
             'answer' => $response,
             'workshop' => [
                 'name' => $workshop['name'],
                 'trainer' => $workshop['trainer_name']
-            ]
+            ],
+            'follow_up_questions' => $followUpQuestions
         ];
     }
 
@@ -446,10 +459,10 @@ Relevant Workshop Content:
 
         $prompt .= "\nUser Question: {$question}
 
-        Please provide a detailed answer that:
-        1. Directly addresses the user's question
-        2. Uses specific information from the workshop content
-        3. Maintains a professional and educational tone
+Please provide a detailed answer that:
+1. Directly addresses the user's question
+2. Uses specific information from the workshop content
+3. Maintains a professional and educational tone
         4. Is clear and easy to understand
         5. Takes into account the conversation history for context (if provided)
         6. Every workshop starts at 5:00 PM and ends around at 6:30 PM IST";
@@ -527,6 +540,56 @@ Relevant Workshop Content:
                 'transcript_length' => strlen($transcript)
             ]
         ];
+    }
+
+    /**
+     * Get suggested questions for a workshop
+     * 
+     * @param int $workshopId The workshop ID
+     * @param int $limit The maximum number of questions to return
+     * @return array Array of suggested questions
+     */
+    public function getSuggestedQuestions($workshopId, $limit = 10) {
+        // Get questions from different categories for variety
+        $categories = ['summary', 'missed_content', 'practical_application', 'content_clarification'];
+        $questions = [];
+        
+        foreach ($categories as $category) {
+            $categoryQuestions = $this->getWorkshopQuestions($workshopId, $category);
+            if (!empty($categoryQuestions)) {
+                // Take 1-3 questions from each category
+                $questionsFromCategory = array_slice($categoryQuestions, 0, min(3, count($categoryQuestions)));
+                $questions = array_merge($questions, $questionsFromCategory);
+                
+                // If we have enough questions, stop adding more
+                if (count($questions) >= $limit) {
+                    break;
+                }
+            }
+        }
+        
+        // If we still need more questions, get some from any category
+        if (count($questions) < $limit) {
+            $moreQuestions = $this->getWorkshopQuestions($workshopId);
+            // Filter out questions we already have
+            $existingIds = array_map(function($q) { return $q['id']; }, $questions);
+            $newQuestions = array_filter($moreQuestions, function($q) use ($existingIds) {
+                return !in_array($q['id'] ?? 0, $existingIds);
+            });
+            
+            $questions = array_merge($questions, array_slice($newQuestions, 0, $limit - count($questions)));
+        }
+        
+        // Shuffle to mix up the categories
+        shuffle($questions);
+        
+        // Return only the question text for the UI
+        return array_map(function($q) {
+            return [
+                'text' => $q['question'],
+                'type' => $q['question_type']
+            ];
+        }, array_slice($questions, 0, $limit));
     }
 }
 ?> 

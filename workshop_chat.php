@@ -114,7 +114,8 @@ if (isset($_POST['action'])) {
             echo json_encode([
                 'success' => true,
                 'answer' => $answer['answer'],
-                'workshop' => $answer['workshop']
+                'workshop' => $answer['workshop'],
+                'follow_up_questions' => isset($answer['follow_up_questions']) ? $answer['follow_up_questions'] : []
             ]);
             exit;
 
@@ -286,6 +287,12 @@ if (isset($_POST['action'])) {
                         <i class="fas fa-paper-plane"></i>
                         <span>Send</span>
                     </button>
+                </div>
+            </div>
+            <div class="suggested-questions" id="suggested-questions">
+                <!-- <h3>Suggested Questions</h3> -->
+                <div class="questions-container">
+                    <!-- <div class="loading">Loading suggestions...</div> -->
                 </div>
             </div>
         </main>
@@ -506,33 +513,216 @@ if (isset($_POST['action'])) {
                 return text;
             }
 
-            // Handle workshop selection
-            $(document).on('click', '.workshop-card', function() {
-                $('.workshop-card').removeClass('selected');
-                $(this).addClass('selected');
-                currentWorkshopId = $(this).data('id');
-                loadHistory(currentWorkshopId);
+            // Replace the existing suggested questions div with a floating design
+            $('head').append(`
+                <style>
+                    /* Floating Suggested Questions Panel */
+                    .floating-suggestions {
+                        position: fixed;
+                        bottom: 80px;
+                        right: 20px;
+                        width: 300px;
+                        background: rgba(255, 255, 255, 0.95);
+                        border-radius: 12px;
+                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                        z-index: 100;
+                        transition: all 0.3s ease;
+                        max-height: 60vh;
+                        display: flex;
+                        flex-direction: column;
+                        backdrop-filter: blur(10px);
+                        border: 1px solid rgba(226, 232, 240, 0.8);
+                        overflow: hidden;
+                    }
+                    
+                    .suggestions-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 12px 15px;
+                        background: rgba(249, 250, 251, 0.8);
+                        border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+                        cursor: pointer;
+                    }
+                    
+                    .suggestions-header h3 {
+                        margin: 0;
+                        font-size: 14px;
+                        color: #4b5563;
+                        font-weight: 600;
+                    }
+                    
+                    .suggestions-toggle {
+                        color: #6b7280;
+                        font-size: 14px;
+                        transition: transform 0.3s;
+                    }
+                    
+                    .suggestions-body {
+                        padding: 10px;
+                        overflow-y: auto;
+                        flex: 1;
+                        transition: max-height 0.3s ease;
+                    }
+                    
+                    .suggestions-body.collapsed {
+                        max-height: 0;
+                        padding: 0 10px;
+                    }
+                    
+                    .question-chip {
+                        display: inline-block;
+                        background: rgba(224, 231, 255, 0.8);
+                        color: #4b5563;
+                        padding: 8px 15px;
+                        border-radius: 20px;
+                        margin: 4px;
+                        font-size: 13px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        border: 1px solid rgba(199, 210, 254, 0.3);
+                    }
+                    
+                    .question-chip:hover {
+                        background: rgba(209, 218, 254, 0.9);
+                        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+                        transform: translateY(-1px);
+                    }
+                    
+                    .question-chip.follow-up {
+                        background: rgba(224, 242, 254, 0.8);
+                        border-left: 3px solid #0ea5e9;
+                    }
+                    
+                    /* Follow-up questions in chat */
+                    .follow-up-questions {
+                        background: rgba(240, 249, 255, 0.7);
+                        border-radius: 8px;
+                        padding: 10px 15px;
+                        margin-top: 10px;
+                        border-left: 3px solid #0ea5e9;
+                        backdrop-filter: blur(5px);
+                        max-width: 85%;
+                        margin-left: auto;
+                    }
+                    
+                    .follow-up-title {
+                        font-weight: 600;
+                        color: #0369a1;
+                        font-size: 13px;
+                        margin-bottom: 8px;
+                    }
+                    
+                    .follow-up-container {
+                        display: flex;
+                        flex-wrap: wrap;
+                    }
+                    
+                    /* Responsive adjustments */
+                    @media (max-width: 768px) {
+                        .floating-suggestions {
+                            width: calc(100% - 40px);
+                            right: 20px;
+                            bottom: 70px;
+                            max-height: 40vh;
+                        }
+                    }
+                    
+                    /* For smaller screens, make the floating panel more compact */
+                    @media (max-width: 480px) {
+                        .floating-suggestions {
+                            width: calc(100% - 20px);
+                            right: 10px;
+                            max-height: 30vh;
+                        }
+                    }
+                </style>
+            `);
+            
+            // Add the floating suggestions panel
+            $('body').append(`
+                <div class="floating-suggestions" id="floating-suggestions">
+                    <div class="suggestions-header" id="suggestions-header">
+                        <h3><i class="fas fa-lightbulb"></i> Suggested Questions</h3>
+                        <span class="suggestions-toggle"><i class="fas fa-chevron-up"></i></span>
+                    </div>
+                    <div class="suggestions-body" id="suggestions-body">
+                        <div class="loading">Loading suggestions...</div>
+                    </div>
+                </div>
+            `);
+            
+            // Toggle suggestions panel
+            $('#suggestions-header').click(function() {
+                $('#suggestions-body').toggleClass('collapsed');
+                const icon = $('.suggestions-toggle i');
+                if ($('#suggestions-body').hasClass('collapsed')) {
+                    icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+                } else {
+                    icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+                }
+            });
+
+            // Load suggested questions
+            function loadSuggestedQuestions(workshopId) {
+                $('#suggestions-body').html('<div class="loading">Loading suggestions...</div>');
                 
-                // Close sidebar on mobile after selection
-                if (window.innerWidth <= 768) {
-                    $('.sidebar').removeClass('active');
-                }
-            });
+                $.get('get_suggested_questions.php', { 
+                    workshop_id: workshopId,
+                    limit: 8
+                }, function(response) {
+                    if (response.success && response.questions.length > 0) {
+                        const questionsHtml = response.questions.map(q => 
+                            `<div class="question-chip">${q.text}</div>`
+                        ).join('');
+                        
+                        $('#suggestions-body').html(questionsHtml);
+                        
+                        // Add click handlers for suggested questions
+                        $('.question-chip').click(function() {
+                            const question = $(this).text();
+                            sendQuestion(question);
+                        });
+                    } else {
+                        $('#suggestions-body').html('<div class="no-suggestions">No suggested questions available</div>');
+                    }
+                }).fail(function() {
+                    $('#suggestions-body').html('<div class="error">Failed to load suggestions</div>');
+                });
+            }
 
-            // Handle send button click
-            $('#send-button').click(sendQuestion);
+            // Add follow-up questions with a more space-efficient design
+            function addFollowUpQuestions(followUpQuestions) {
+                if (!followUpQuestions || followUpQuestions.length === 0) return;
+                
+                const followUpHtml = `
+                    <div class="follow-up-questions">
+                        <div class="follow-up-title">
+                            <i class="fas fa-lightbulb"></i> You might want to ask:
+                        </div>
+                        <div class="follow-up-container">
+                            ${followUpQuestions.map(q => 
+                                `<div class="question-chip follow-up">${q}</div>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+                $('#chat-container').append(followUpHtml);
+                
+                // Add click handlers for follow-up questions
+                $('.follow-up-questions .question-chip').click(function() {
+                    const question = $(this).text();
+                    sendQuestion(question, true);
+                });
+                
+                // Scroll to bottom
+                $('#chat-container').scrollTop($('#chat-container')[0].scrollHeight);
+            }
 
-            // Handle enter key
-            $('#question-input').keypress(function(e) {
-                if (e.which === 13) {
-                    sendQuestion();
-                }
-            });
-
-            // Send question to server
-            function sendQuestion() {
-                const question = $('#question-input').val().trim();
-                if (!question) {
+            // Send question to server - updated to use new follow-up display
+            function sendQuestion(question, isFollowUp = false) {
+                const currentQuestion = question || $('#question-input').val().trim();
+                if (!currentQuestion) {
                     alert('Please enter a question');
                     return;
                 }
@@ -541,23 +731,54 @@ if (isset($_POST['action'])) {
                     return;
                 }
 
-                addMessage(question, 'user');
+                addMessage(currentQuestion, 'user');
                 $('#question-input').val('');
                 $('#typing-indicator').show();
 
                 $.post('workshop_chat.php', {
                     action: 'ask_question',
                     workshop_id: currentWorkshopId,
-                    question: question
+                    question: currentQuestion
                 }, function(response) {
                     $('#typing-indicator').hide();
                     if (response.success) {
                         addMessage(response.answer, 'bot');
+                        
+                        // Add follow-up questions with the new function
+                        if (response.follow_up_questions) {
+                            addFollowUpQuestions(response.follow_up_questions);
+                        }
                     } else {
                         addMessage('Error: ' + response.error, 'bot');
                     }
                 });
             }
+
+            // Handle workshop selection
+            $(document).on('click', '.workshop-card', function() {
+                $('.workshop-card').removeClass('selected');
+                $(this).addClass('selected');
+                currentWorkshopId = $(this).data('id');
+                loadHistory(currentWorkshopId);
+                loadSuggestedQuestions(currentWorkshopId);
+                
+                // Close sidebar on mobile after selection
+                if (window.innerWidth <= 768) {
+                    $('.sidebar').removeClass('active');
+                }
+            });
+
+            // Handle send button click
+            $('#send-button').click(function() {
+                sendQuestion();
+            });
+
+            // Handle enter key
+            $('#question-input').keypress(function(e) {
+                if (e.which === 13) {
+                    sendQuestion();
+                }
+            });
 
             // Handle certificate button click
             $(document).on('click', '.certificate-btn', function(e) {
