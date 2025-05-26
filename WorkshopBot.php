@@ -465,7 +465,7 @@ Please provide a detailed answer that:
 3. Maintains a professional and educational tone
         4. Is clear and easy to understand
         5. Takes into account the conversation history for context (if provided)
-        6. Every workshop starts at 5:00 PM and ends around at 6:30 PM IST";
+        6. Everytime related question don't say you don't have the timestamp to answer it, Give the answer with repect to the approximate time time stamp or window of workshop comtext.";
 
         return $prompt;
     }

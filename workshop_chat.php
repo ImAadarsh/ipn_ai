@@ -8,7 +8,7 @@ require_once 'WorkshopBot.php';
 
 // Set test user session
 $_SESSION['user'] = [
-    'id' => 36,
+    'id' => 37,
     'name' => 'Aadarsh Gupta',
     'email' => 'aadarshkavita@gmail.com',
     'mobile' => '9399380920',
@@ -194,6 +194,197 @@ if (isset($_POST['action'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        .typing-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            display: none;
+        }
+
+        .ai-thinking {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            background: rgba(255, 255, 255, 0.18);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            padding: 48px 56px 40px 56px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            min-width: 320px;
+        }
+
+        .wave-container {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .wave {
+            position: absolute;
+            border-radius: 50%;
+            background: transparent;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(79, 70, 229, 0.25);
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.08);
+            animation: wave 3s infinite;
+        }
+
+        .wave-1 { 
+            width: 100%; 
+            height: 100%; 
+            animation-delay: 0s;
+            border-width: 1.5px;
+        }
+        .wave-2 { 
+            width: 85%; 
+            height: 85%; 
+            animation-delay: 0.2s;
+            border-width: 1.2px;
+        }
+        .wave-3 { 
+            width: 70%; 
+            height: 70%; 
+            animation-delay: 0.4s;
+            border-width: 1px;
+        }
+        .wave-4 { 
+            width: 55%; 
+            height: 55%; 
+            animation-delay: 0.6s;
+            border-width: 0.8px;
+        }
+        .wave-5 { 
+            width: 40%; 
+            height: 40%; 
+            animation-delay: 0.8s;
+            border-width: 0.6px;
+        }
+
+        .processing-core {
+            position: relative;
+            width: 30%;
+            height: 30%;
+            z-index: 2;
+        }
+
+        .core-inner {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #2563eb, #4f46e5);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .core-outer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px solid rgba(79, 70, 229, 0.3);
+            border-radius: 50%;
+            animation: rotate 3s linear infinite;
+        }
+
+        .processing-text {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #22223b;
+            text-shadow: 0 2px 8px rgba(255,255,255,0.25), 0 1px 2px rgba(0,0,0,0.08);
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #2563eb, #4f46e5 80%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .dots {
+            display: flex;
+            gap: 2px;
+        }
+
+        .dot {
+            width: 4px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+
+        .dot:nth-child(1) { animation: pulse 1.4s infinite 0.2s; }
+        .dot:nth-child(2) { animation: pulse 1.4s infinite 0.4s; }
+        .dot:nth-child(3) { animation: pulse 1.4s infinite 0.6s; }
+
+        @keyframes wave {
+            0% {
+                transform: scale(1);
+                opacity: 0.7;
+                border-color: rgba(79, 70, 229, 0.25);
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.35;
+                border-color: rgba(79, 70, 229, 0.35);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0.7;
+                border-color: rgba(79, 70, 229, 0.25);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.2); opacity: 1; }
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Backdrop with glassmorphism */
+        .typing-indicator::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: transparent;
+            backdrop-filter: blur(12px);
+            z-index: -1;
+        }
+
+        /* Add subtle gradient overlay */
+        .typing-indicator::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, 
+                rgba(79, 70, 229, 0.07) 0%,
+                rgba(17, 24, 39, 0.08) 100%);
+            z-index: -1;
+        }
+    </style>
 </head>
 <body>
     <header class="header">
@@ -278,7 +469,27 @@ if (isset($_POST['action'])) {
                 </div>
             </div>
             <div class="typing-indicator" id="typing-indicator">
-                <i class="fas fa-circle-notch fa-spin"></i> AI Teacher is thinking...
+                <div class="ai-thinking">
+                    <div class="wave-container">
+                        <div class="wave wave-1"></div>
+                        <div class="wave wave-2"></div>
+                        <div class="wave wave-3"></div>
+                        <div class="wave wave-4"></div>
+                        <div class="wave wave-5"></div>
+                        <div class="processing-core">
+                            <div class="core-inner"></div>
+                            <div class="core-outer"></div>
+                        </div>
+                    </div>
+                    <div class="processing-text">
+                        <span class="text-gradient">IPN Teacher is thinking...</span>
+                        <span class="dots">
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                            <span class="dot"></span>
+                        </span>
+                    </div>
+                </div>
             </div>
             <div class="input-container">
                 <div class="input-wrapper">
@@ -429,7 +640,8 @@ if (isset($_POST['action'])) {
                                 </div>
                             `);
                         } else {
-                            response.history.forEach(function(item) {
+                            // Reverse the history array to show oldest messages first
+                            response.history.reverse().forEach(function(item) {
                                 addMessage(item.question, 'user');
                                 addMessage(item.answer, 'bot');
                             });
@@ -438,7 +650,7 @@ if (isset($_POST['action'])) {
                 });
             }
 
-            // Add message to chat
+            // Add message to chat with smart scrolling
             function addMessage(text, type) {
                 const messageClass = type === 'user' ? 'user-message' : 'bot-message';
                 let formattedText = text;
@@ -449,7 +661,16 @@ if (isset($_POST['action'])) {
 
                 const message = `<div class="message ${messageClass}">${formattedText}</div>`;
                 $('#chat-container').append(message);
-                $('#chat-container').scrollTop($('#chat-container')[0].scrollHeight);
+                
+                // Smart scrolling - only scroll if user is near bottom
+                const chatContainer = $('#chat-container');
+                const isNearBottom = chatContainer[0].scrollHeight - chatContainer.scrollTop() - chatContainer.height() < 100;
+                
+                if (isNearBottom) {
+                    chatContainer.animate({
+                        scrollTop: chatContainer[0].scrollHeight
+                    }, 300);
+                }
             }
 
             function formatBotResponse(text) {
@@ -636,6 +857,17 @@ if (isset($_POST['action'])) {
                             max-height: 30vh;
                         }
                     }
+
+                    .educator-badge {
+                        display: inline-block;
+                        background-color: #10B981;
+                        color: white;
+                        font-size: 10px;
+                        padding: 2px 6px;
+                        border-radius: 10px;
+                        margin-left: 8px;
+                        font-weight: 500;
+                    }
                 </style>
             `);
             
@@ -669,7 +901,8 @@ if (isset($_POST['action'])) {
                 
                 $.get('get_suggested_questions.php', { 
                     workshop_id: workshopId,
-                    limit: 8
+                    limit: 3,
+                    random: true
                 }, function(response) {
                     if (response.success && response.questions.length > 0) {
                         const questionsHtml = response.questions.map(q => 
@@ -701,8 +934,11 @@ if (isset($_POST['action'])) {
                             <i class="fas fa-lightbulb"></i> You might want to ask:
                         </div>
                         <div class="follow-up-container">
-                            ${followUpQuestions.map(q => 
-                                `<div class="question-chip follow-up">${q}</div>`
+                            ${followUpQuestions.map((q, index) => 
+                                `<div class="question-chip follow-up">
+                                    ${q}
+                                    ${index === 0 ? '<span class="educator-badge">95% educators ask this</span>' : ''}
+                                </div>`
                             ).join('')}
                         </div>
                     </div>
@@ -827,9 +1063,33 @@ if (isset($_POST['action'])) {
                 }, 3000);
             }
 
+            // Add smooth scrolling to chat container
+            $('#chat-container').css({
+                'scroll-behavior': 'smooth',
+                'overflow-y': 'auto'
+            });
+
             // Initial load
             loadWorkshops();
             $('#typing-indicator').hide(); // Hide typing indicator initially
+
+            function activateNodes() {
+                const nodes = document.querySelectorAll('.node');
+                nodes.forEach((node, index) => {
+                    setTimeout(() => {
+                        node.classList.add('active');
+                        setTimeout(() => {
+                            node.classList.remove('active');
+                        }, 500);
+                    }, index * 100);
+                });
+            }
+
+            // Call this when showing the typing indicator
+            $('#typing-indicator').on('show', function() {
+                activateNodes();
+                setInterval(activateNodes, 2000);
+            });
         });
     </script>
 </body>

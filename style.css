@@ -422,11 +422,11 @@ body::before {
     background-size: 100% 0.2em;
     background-position: 0 88%;
     transition: background-size 0.25s ease-in;
-    color: var(--accent-color); /* Highlight text color from accent */
+    /* color: var(--accent-color);  */
 }
 
 .bot-message .highlight:hover {
-    background-size: 100% 100%;
+    /* background-size: 100% 100%; */
 }
 
 .bot-message .bold-text {
