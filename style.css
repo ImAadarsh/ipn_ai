@@ -423,10 +423,12 @@ body::before {
     background-position: 0 88%;
     transition: background-size 0.25s ease-in;
     /* color: var(--accent-color);  */
+    /* color: #22223b; */
 }
 
 .bot-message .highlight:hover {
     /* background-size: 100% 100%; */
+    
 }
 
 .bot-message .bold-text {
